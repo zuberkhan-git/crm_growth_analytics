@@ -1,0 +1,444 @@
+technical_documentation 
+Sales & CRM Performance Analysis for Binary Units, inc.
+
+
+5/21/24: 
+I loaded each individual table into jupyter lab for EDA. CSV file names include ‘accounts’, ‘products’, ‘sales_pipeline’,  and ‘sales_teams’. Retrieved basic summary statistics for early EDA documentation of each table in its original state before making any modifications. 
+Accounts table EDA:
+*******ACCOUNTS CSV*********
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+df = pd.read_csv('accounts.csv')
+df.head()
+df.info()
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 85 entries, 0 to 84
+Data columns (total 7 columns):
+ #   Column            Non-Null Count  Dtype  
+---  ------            --------------  -----  
+ 0   account           85 non-null     object 
+ 1   sector            85 non-null     object 
+ 2   year_established  85 non-null     int64  
+ 3   revenue           85 non-null     float64
+ 4   employees         85 non-null     int64  
+ 5   office_location   85 non-null     object 
+ 6   subsidiary_of     15 non-null     object   
+# subsidiary_of notes: only 7 unique subsidiaries across a total of 15 non-null fields with a subsidiary value over the span of my 85 unique accounts. I could replace nulls with 'no parent company' or 'parent not given'. Made decision to postpone implementing until needed for analysis. time saver. steps considered shown below if needed under prompt of df['subsidiary_of'].value_counts(). 
+dtypes: float64(1), int64(2), object(4)
+memory usage: 4.8+ KB
+
+
+
+df['subsidiary_of'].value_counts()  
+#we have instances where account field says "Acme Corporation" but "subsidiary_of" is null even though this output tells us Acme Corporation is, in fact, a parent company. Next step would be to fillna with "Acme Corporation" where account ==  "Acme Corporation" and repeat for all subsidiary_of known values. Then, I would fill remaining nulls with "no_parent_co" but I don't anticipate needing subsidiary_of column for my analysis and the questions I want to answer. Is it a time saver and performance boost to delete column? Yes. If needed later, address later. Leave column in for now. won't hurt performance much. 
+# just to put my eyes on it... 
+df[ (df['account'] == 'Acme Corporation')  ]
+
+subsidiary_of
+Acme Corporation    4
+Sonron              3
+Bubba Gump          2
+Inity               2
+Golddex             2
+Massive Dynamic     1
+Warephase           1
+Name: count, dtype: int64
+
+#how many uniques do I have in my accounts table?
+df.nunique()
+account             85
+sector              10
+year_established    35
+revenue             85
+employees           85
+office_location     15
+subsidiary_of        7
+
+df.describe()
+year_established     revenue	employees
+count	85.000000	85.000000	85.000000
+mean	1996.105882	1994.632941	4660.823529
+std	8.865427	2169.491436	5715.601198
+min	1979.000000	4.540000	9.000000
+25%	1989.000000	497.110000	1179.000000
+50%	1996.000000	1223.720000	2769.000000
+75%	2002.000000	2741.370000	5595.000000
+max	2017.000000	11698.030000	34288.000000
+
+Products table EDA:
+*******PRODUCTS CSV*********
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+df = pd.read_csv('products.csv')
+df.head()
+df.info()
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 7 entries, 0 to 6
+Data columns (total 3 columns):
+ #   Column       Non-Null Count  Dtype 
+---  ------       --------------  ----- 
+ 0   product      7 non-null      object
+ 1   series       7 non-null      object
+ 2   sales_price  7 non-null      int64 
+dtypes: int64(1), object(2)
+memory usage: 300.0+ bytes
+df.nunique()
+product        7
+series         3
+sales_price    7
+dtype: int64
+
+df
+	product	series	sales_price
+0	GTX Basic	GTX	550
+1	GTX Pro	GTX	4821
+2	MG Special	MG	55
+3	MG Advanced	MG	3393
+4	GTX Plus Pro	GTX	5482
+5	GTX Plus Basic	GTX	1096
+6	GTK 500	GTK	26768
+
+df.describe()
+	sales_price
+count	7.000000
+mean	6023.571429
+std	9388.428070
+min	55.000000
+25%	823.000000
+50%	3393.000000
+75%	5151.500000
+max	26768.000000
+
+
+
+Sales teams table EDA:
+*******SALES TEAMS CSV*********
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+df = pd.read_csv('sales_teams.csv')
+df
+# There are 35 salespeople. 3 regions. two managers per region. 
+df.nunique()
+sales_agent        35
+manager             6
+regional_office     3
+dtype: int64
+
+df.info()
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 35 entries, 0 to 34
+Data columns (total 3 columns):
+ #   Column           Non-Null Count  Dtype 
+---  ------           --------------  ----- 
+ 0   sales_agent      35 non-null     object
+ 1   manager          35 non-null     object
+ 2   regional_office  35 non-null     object
+dtypes: object(3)
+memory usage: 972.0+ bytes
+
+
+
+
+#sales agents by region
+df['regional_office'].value_counts()
+regional_office
+East       12
+West       12
+Central    11
+Name: count, dtype: int64
+
+
+Pipeline table EDA:
+*******SALES PIPELINE CSV*********
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+df = pd.read_csv('sales_pipeline.csv')
+df.head()
+#Kaggle said 8,800 unique opportunity_id   and my python work says count of 8,800 non-null #opportunity IDs. that could mean each opp id is unique. verify... verified
+df.info()
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 8800 entries, 0 to 8799
+Data columns (total 8 columns):
+ #   Column          Non-Null Count  Dtype  
+---  ------          --------------  -----  
+ 0   opportunity_id  8800 non-null   object 
+ 1   sales_agent     8800 non-null   object 
+ 2   product         8800 non-null   object 
+ 3   account         7375 non-null   object   #1,425 nulls here are likely a combo of 500 optys in prospecting stage and 925 in engaging. some engaging stage opptys are probably existing accts. some new/blank. Verify. NOPE. It turns out 337 acct nulls are opptys in prospecting stage (less than the 500 prospecting opptys total) and 1,088 are opptys in engaging state. that means 33% of prospecting opptys are entered with an acct name and 67% are not. It means 68% of opptys in engaging stage have no acct name and 32% do (1,088/1,589). It also means I can't calculate new biz (targets that haven’t done business with us in the past) in funnel stage because some opptys have acct names in prospecting deal stage. All acct nulls are either prospecting or engaging. Should replace acct nulls with "No Acct Name Entered" for interpretability in visualization stage.
+ 4   deal_stage      8800 non-null   object 
+ 5   engage_date     8300 non-null   object   #500 nulls here are likely all opptys that are in prospecting stage. verify. verified. will I need to convert date? I can duplicate column in tableau and convert there. I probably only need to convert to date to limit date at file level instead of filtering at tableau level. Leave nulls alone as they are indicative of prospecting stage opptys.
+ 6   close_date      6711 non-null   object   # 8,800 minus 2,089 engaging or prospecting is 6711 opptys ‘won’ or ‘lost’. Will I need to convert date? Can do with pd.to_datetime(). No, I’ll do it in tableau if needed.
+ 7   close_value     6711 non-null   float64  # 8,800 minus 2,089 engaging or prospecting is 6711 opptys won or lost. All ‘lost’ deal stages have $0 close value. No close values of $0 are any stage other than lost? Yes, verified.
+dtypes: float64(1), object(7)
+memory usage: 550.1+ KB
+
+#engage dates and close dates are in YYYY-MM-DD
+
+#verifying unique values of opportunity_id:
+df['opportunity_id'].nunique()
+output: 8800
+yep; 8,800 unique opportunity_id s. 
+
+#verifying all 500 nulls in engage_date are opptys in the ‘Prospecting’ stage:
+df[ (df['deal_stage'] == 'Prospecting') & (df['engage_date'].isnull()) ] 
+#output gives df visual but summary says: 500 rows × 8 columns. 500 was my number.
+
+#checking null account values by deal stage:
+df[ (df['deal_stage'] == 'Engaging') & (df['account'].isnull()) ]         #count 1088
+df[ (df['deal_stage'] == 'Prospecting') & (df['account'].isnull()) ]     #count 337
+
+#verify 2,089 close date nulls are 1589 engaging and 500 prospecting deal stages.
+# df[ (df['deal_stage'] == 'Engaging') & (df['close_date'].isnull()) ]   gets 1589
+df[ (df['deal_stage'] == 'Prospecting') & (df['close_date'].isnull()) ]   #gets 500... yep!
+
+#verify number of close value of 0 are deal stage ‘lost’. 2473 optys.
+df[ (df['deal_stage'] == 'Lost') & (df['close_value'] == 0.0) ]  
+
+#verify number of deal stage won. 4238
+#df[ df['deal_stage'] == 'Won'  ]   
+
+#verify no won opptys have nulls in close value.  
+df[ (df['deal_stage'] == 'Won') & (df['close_value'].isnull()) ] 
+# It's true. all null close values belong to engaging or prospecting.
+
+#any deal values of 0 that have a stage other than lost? nope.
+df[ (df['deal_stage'] == 'Prospecting') & (df['close_value'] == 0.0) ]   
+
+#how many opportunities do I have by each deal stage? 
+df['deal_stage'].value_counts()
+deal_stage
+Won            4238
+Lost           2473
+Engaging       1589
+Prospecting     500
+Name: count, dtype: int64
+
+
+#how many uniques in my sales pipeline table?
+df.nunique()
+opportunity_id    8800
+sales_agent         30
+product              7
+account             85
+deal_stage           4
+engage_date        421
+close_date         306
+close_value       2051
+dtype: int64
+
+#basic stats on close value? Min = $0. Max = $30,288. avg = $1,490.92
+df.describe()
+	close_value
+count	6711.000000
+mean	1490.915512
+std	2320.670773
+min	0.000000
+25%	0.000000
+50%	472.000000
+75%	3225.000000
+max	30288.000000
+
+5/22:
+After EDA, I thought about join structure. Identified primary keys and decided to create two joined entities to import to Tableau: one that outer joins the ‘sales_teams’ to the ‘sales_pipeline’ fact table, and another that left joins the 'sales_teams’ table to the ‘sales_pipeline’ table. In both cases, all other tables were left joined to the ‘sales_pipeline’ fact table. This decision was made because I wanted the flexibility to demonstrate that we had 35 salespeople but only show data for the 30 that had activity, for some portion of my analysis. I wasn’t sure which I would need yet, but I knew I could blend data sources in Tableu and make changes later if needed. Keys are identified in star schema map in final presentation in Tableau file as well as excel file ‘schema_&_cleaning’ and accompanying powerpoint. 
+
+I started by joining my entities in Tableau. I was able to visually recognize some unanticipated null values and duplicate columns. This lead me to discover a typo in one of my primary keys. The ‘product’ column in the ‘sales_pipeline’ contained a value of ‘GTXPro’ whereas the product table’s most similar value in the same column was ‘GTX Pro’. I noted I would have to look for more typos, starting with my keys. I then began fixing this first typo by adding a space to the value in the pipeline table. 
+#let's try fixing the one typo we know is problematic. change all instances of GTXPro to GTX Pro. use .replace
+df_typo_fix = df.replace('GTXPro','GTX Pro')
+
+df_typo_fix   # it worked.
+
+#send my new pipeline to a new csv with a new title. 
+df = pd.read_csv('sales_pipeline.csv')
+file_path = 'pipeline_typo_fix.csv'
+df_typo_fix.to_csv(file_path, index=False)
+
+My approach to finding additional typos or discrepancies was to compare EDA stats I had already generated for each individual table (using mostly the .info() method) to EDA stats to a data frame that joined all tables together. I had already garnered an understanding of how many nulls to expect per column and why they were there, so if I joined and the overall shape of the new table changed or count of nulls changed I knew I would have a point to investigate. Once I changed values of “GTXPro” to ‘GTX Pro’ within sales_pipeline to create ‘pipeline_typo_fix.csv’, I engaged in a time-consuming heavily manual process of exploring key values before taking the easier step of joining the tables and comparing size, shape, and info stats to the original tables.
+
+I found the unique values of all 35 sales agents and all 85 accounts, and all 7 products from the relevant fact and dimension tables using .value_counts() and .unique() methods.
+From accounts.csv:
+df['account'].unique()
+from sales_teams.csv:
+df['sales_agent'].unique()
+#and
+df['sales_agent']
+
+from products.csv:
+df
+#there were only 7, so products was a simple copy, paste, visual check. 
+
+I copied and pasted each value and it’s count into excel file ‘schema_&_cleaning’. 
+
+I then copied each name from excel and pasted into code that resembled:
+len(df[(df['account'] == 'Zumgoity')])
+that happened in an ipynb named ‘sales_pipeline_eda’ that referenced the original 'sales_pipeline.csv' as ‘df’.
+I repeated this manual process for all account names, product names, sales agent names and copied and pasted into excel to compare side by side. 
+I realized my totals were not what I expected. I also realized there was a better way to get the info I wanted from my python environment (sales_pipeline_eda.ipynb) so I used the value_counts() method to check my first round of manual excel work. 
+
+df_typo_fix['sales_agent'].value_counts()
+df_typo_fix['account'].value_counts()
+
+I verified that there were 85 unique account values in ‘sales_pipeline.csv’ and in ‘accounts.csv’. I verified that all 85 unique values in ‘accounts’ were contained in sales_pipeline_.csv’. GTXPro was the only issue between products and pipeline. I verified the 35 sales agents in the original ‘sales_teams.csv’ matched with the sales agent values in my new sales pipeline df, ‘df_typo_fix’ in ‘sales_pipeline_eda.ipynb’. With my concerns about matching key values alleviated through manual scrutiny in excel, I joined my most recent tables and data frames to compare overall size and shape with originals before moving to Tableau for further visual exploration and proof of concept visualization building. 
+
+5/23/24:
+I did my work joining tables in jupyter lab in file ‘Joiner.ipynb’. Here are the relevant highlights: 
+
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+pipeline = pd.read_csv('pipeline_typo_fix.csv')
+sellers = pd.read_csv('sales_teams.csv')
+products = pd.read_csv('products.csv')
+accts = pd.read_csv('accounts.csv')
+pipeline_w_products = pd.merge(pipeline, products, 'left', 'product')
+pipeline_w_products.info()  #columns check out and number of non-null values check out.
+pipeline_w_products.shape #8,800 by 10 is what we wanted.
+#now join accts
+pipeline_w_products_and_accts = pd.merge(pipeline_w_products, accts, 'left', 'account')
+pipeline_w_products_and_accts.info() #looks good
+pipeline_w_products_and_accts.shape #looks good
+# left join sellers to pipeline_w_products_and_accts
+fully_joined_lefts = pd.merge(pipeline_w_products_and_accts, sellers, 'left', 'sales_agent')
+
+#now join sellers for an entity that has an outer join. 
+fully_joined_outer = pd.merge(pipeline_w_products_and_accts, sellers, 'outer', 'sales_agent')
+fully_joined_outer.shape #good. I expected 8,805 and 18. 5 sellers have no activity.
+fully_joined_outer.info() #looks good! should check for null counts next. fully_joined_outer ready for export.
+pd.isnull(fully_joined_outer).sum() #this all checks out.
+
+With basic EDA stats checking out when comparing my new joined entities to the original tables I took some additional small steps before exporting. I chose to drop duplicate records to see if it made any changes. It did not. 
+
+#before I export either of these, lets try pd.df.drop_duplicates() just in case there are duplicates. check the diff.
+fully_joined_lefts.drop_duplicates() #did nothing. no duplicates.
+
+#drop duplicates for outer...
+fully_joined_outer.drop_duplicates()  #did nothing. no duplicates.
+
+I took a final aesthetic step of replacing nulls in the account column with ‘No Acct Name Entered’. 
+
+#now, let's replace null account names in each df before exporting each df to new CSVs. be careful to only replace nulls in account col
+values = {"account": 'No Acct Name Entered'}
+fully_joined_lefts_final = fully_joined_lefts.fillna(value=values)
+
+#since that worked, let's do it again for fully joined outer before exporting
+values = {"account": 'No Acct Name Entered'}
+fully_joined_outer_final = fully_joined_outer.fillna(value=values)
+
+fully_joined_outer_final.info() #that worked too. 
+
+Cleaning until this point done 12:54pm 5/23/24: I've fixed the product typo with GTXPro, removed duplicates (didn't exist), and filled acct name nulls with 'no acct name entered'. I have one join structure that allows for seeing sellers with no activity and one that only shows sellers with opportunities. I also made sure that GTXPro was the only primary key typo. I made and documented decisions to leave several columns of nulls alone in ‘Sales_Performance_All_Techincal_Documentation.txt’. 
+
+
+
+
+From ‘Joiner.ipynb’ I exported to new csvs:
+#time to export. let's start with fully_joined_lefts_final.
+file_path = 'pipeline_left_joins_cleaned_5_23_24_01.csv' 
+fully_joined_lefts_final.to_csv(file_path, index=False)
+
+#new csv for fully_joined_outer_final.
+file_path = 'pipeline_outer_joins_cleaned_5_23_24_01.csv' 
+fully_joined_outer_final.to_csv(file_path, index=False)
+
+#testing my csvs created at 1p 5/23/24 worked. 
+df = pd.read_csv('pipeline_left_joins_cleaned_5_23_24_01.csv')
+df2 = pd.read_csv('pipeline_outer_joins_cleaned_5_23_24_01.csv')
+
+df #looks like it worked.
+df2 #looks like that worked too. can start working with these two CSVs in tableau until 
+#they prove problematic.
+
+After creating my two CSV files, I uploaded them to Tableau to make some proof-of-concept visualizations and get another perspective on the data to see if more cleaning was needed. The first question that arose for me was, “Am I sure that there is only one product per opportunity?”
+
+Within ‘Joiner.ipynb’ I ran the following:
+fully_joined_lefts_final['product'].value_counts() 
+#looks promising but I don't know if this is a guarantee.
+product
+GTX Basic         1866
+MG Special        1651
+GTX Pro           1480
+MG Advanced       1412
+GTX Plus Basic    1383
+GTX Plus Pro       968
+GTK 500             40
+Name: count, dtype: int64
+
+fully_joined_lefts_final[ fully_joined_lefts_final['close_value'] > 20000 ]
+#also looks promising. 
+
+#are there instances of same sales agent, same engage date, clase date, account, but different op id diff product?
+#df[df['sales_agent'] == 'Wilburn Farren']
+df[(df['sales_agent'] == 'Darcel Schlecht') & (df['account'] == 'Hottechi')]
+
+Wilburn Farren was a sales agent in the bottom 20% of the organization. I also ran the above code for a top seller, Darcel Schlecht. I chose a top account in Hottechi and a smaller account in ‘Bluth Company’ to toggle those values in the code block above. Having seen no instances of multiple products in an opportunity and knowing this data set was synthetically created, I felt comfortable moving forward with the assumption that no opportunities have multiple products. 
+
+5/24/24 & 5/25/24:
+While building map visualizations in tableau I realized two things. First, the regions in the ‘sales_teams’ CSV did not specify the country of origin for this hypothetical computer hardware sales company. Second, the U.S. is the only country that contains more than one account. The map I made for accounts by country did not show all country values I knew to exist (15). Upon investigation I realized the cause was that “Philippines” was improperly spelled as “Philipines” in the original ‘accounts’ CSV. I also realized that instead of specifying “North Korea” or “South Korea”, the original accounts CSV simply said “Korea” causing Tableau to fail to recognize the location. I took the liberty of assuming the computer hardware company was based in the U.S. as most of their accounts were also based there. I also took the liberty of assuming ‘Korea” meant “South Korea”. Since the “East”, “West”, and “Central” regions in the ‘sales_teams’ table did not specify which states pertained to each region I made reasonable assumptions about what constituted each region before creating an excel file that associated state names to region names, titled “states_regions”. 
+
+
+5/26/24:
+In ‘fix_country_names.ipynb’ I ran the following to address country name typos and modifications:
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+pd.set_option('display.max_rows', None)
+df = pd.read_csv('pipeline_left_joins_cleaned_5_23_24_01.csv')
+df2 = pd.read_csv('pipeline_outer_joins_cleaned_5_23_24_01.csv')
+#first 3 cells are to get established. New work that actually fixes issue goes from here down. starting 3:38pm 5/26/24
+df_countries_fix = df.replace(['Philipines', 'Korea'], ['Philippines', 'South Korea'])
+df_countries_fix[df_countries_fix['office_location'] == 'Philipines']  #this worked. Let's export now.
+
+file_path = 'all_left_joined_cntrys_fixed_5_26_24_01.csv'
+df_countries_fix.to_csv(file_path, index=False)
+ 
+#now let's repeat for my outer join df.
+df2_countries_fix = df2.replace(['Philipines', 'Korea'], ['Philippines', 'South Korea'])
+df2_countries_fix[df2_countries_fix['office_location'] == 'South Korea']  #this worked. Let's export now.
+file_path = 'all_outer_joined_cntrys_fixed_5_26_24_01.csv'
+df2_countries_fix.to_csv(file_path, index=False)
+#done fixing country typo and incompatibility issues at the df and csv level as of 3:53pm 5/26/24
+
+In ‘Untitled.ipynb’ I checked my work:
+#checking to see my newly cleaned left joined exported csv worked... 3:45p 5/26/24
+df = pd.read_csv('all_left_joined_cntrys_fixed_5_26_24_01.csv')
+df[df['office_location']=='Korea']  #used this along with .shape to verify it worked.
+
+df2 = pd.read_csv('all_outer_joined_cntrys_fixed_5_26_24_01.csv')
+df2[df2['office_location']=='Philipines'].shape  #used this along with .shape to verify it worked. 
+#done fixing country typo and incompatibility issues at the df and csv level as of 3:53pm 5/26/24
+I replaced my old data sources in Tableau with my new ones. 
+
+5/27/24:
+I had made most of the visualizations I would need at this point. I began working on my first dashboards; an account headquarters map and overall company dashboard. 
+While working on a seasonality of close dates histogram in Tableau it appeared I had some nulls I didn’t expect. I investigated in ‘Untitled.ipynb’:
+#do we have opps where deal stage = won or deal stage = lost for which close date is null?    5/27/24  1:20pm
+df = pd.read_csv('all_left_joined_cntrys_fixed_5_26_24_01.csv')
+df[(df['deal_stage']=='Lost') & (df['close_date'].isna())] #no results
+df[(df['deal_stage']=='Won') & (df['close_date'].isna())] #no results either
+# I resolved the issue by filtering the close date range to the maximum range in Tableau.  The reason there was also no count was because they had no close date (null) but because they also had no deal stage of won or lost (meaning they were either prospecting or engaging). So, their close dates were null but their count of deal stage won or lost was 0.
+
+5/28, 5/29 & 5/30/24:
+ I noticed while building my visualizations that one of the values from the ‘sector’ column of the ‘accounts’ CSV had a typo. “Technology” was misspelled as “Technolgy”. Having built and formatted all of my visualizations I was wary of replacing the data source in Tableau and risking erroneous data source connection. I realized that I could make the change to the typo and save to the current CSVs Tableau was using without any additional steps. In ‘fix_technolgy.ipynb’ I ran the following:
+
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+df1 = pd.read_csv('all_left_joined_cntrys_fixed_5_26_24_01.csv')
+df2 = pd.read_csv('all_outer_joined_cntrys_fixed_5_26_24_01.csv')
+#changing 'technolgy' sector to 'technology' sector for my two primary entities. 8:15a 5/30/24
+df1_tech_fix = df1.replace('technolgy', 'technology')
+df1_tech_fix[df1_tech_fix['sector']=='technolgy'] # it worked. let's export.
+file_path = 'all_left_joined_cntrys_fixed_5_26_24_01.csv'
+df1_tech_fix.to_csv(file_path, index=False)
+
+#repeat for outer
+df2_tech_fix = df2.replace('technolgy', 'technology')
+df2_tech_fix[df2_tech_fix['sector']=='technolgy']  # it worked. let's export.
+
+file_path = 'all_outer_joined_cntrys_fixed_5_26_24_01.csv'
+df2_tech_fix.to_csv(file_path, index=False)
+#done 8:30a 5/30/24
+#instead of messing with new csvs in tableau let's just push the change through the csv already in use. 9am.
