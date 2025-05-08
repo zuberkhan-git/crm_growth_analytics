@@ -1,0 +1,301 @@
+Sales Performance Capstone. 
+
+All Technical Details.
+EDA in python.
+
+
+
+#we have multiple reps selling to the same account. It's therefore not possible for one rep to be successful just because they have the big account.
+
+
+*******SALES PIPELINE CSV*********
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+
+df = pd.read_csv('sales_pipeline.csv')
+
+df.head()
+
+df.info()
+Kaggle said 8,800 unique opportunity_id   and my python work says count of 8,800 non-null opportunity IDs. that could mean each opp id is unique. verify... verified
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 8800 entries, 0 to 8799
+Data columns (total 8 columns):
+ #   Column          Non-Null Count  Dtype  
+---  ------          --------------  -----  
+ 0   opportunity_id  8800 non-null   object 
+ 1   sales_agent     8800 non-null   object 
+ 2   product         8800 non-null   object 
+ 3   account         7375 non-null   object   #1,425 nulls here are likely a combo of 500 optys in prospecting stage and 925 in engaging. some engaging are probably existng accts. some new/blank.verify. Nope. It turns out 337 acct nulls are optys in prospecting stage (less than the 500 prspctng optys total) and 1,088 are optys in engaging state. that means 33% of prospecting optys are entered with 
+an acct name and 67% are not. It means 68% of optys in engaging stage have no acct name and 32% do (1,088/1,589). It also means I can't calc new biz in funnel stage bc some optys have acct names in prospecting deal stage.all acct nulls are either prospecting or engaging. replace acct nulls with "No Acct Name Entered"
+ 4   deal_stage      8800 non-null   object 
+ 5   engage_date     8300 non-null   object   #500 nulls here are likely all opptys that are in prospecting stage. verify. verified. will I need to convert date? can dup column in tableau and convert 1.probably only need to convert to date to limit date at file level instead of filtering at tableau level. leave nulls alone as they are indicative of prospecting stage optys.
+ 6   close_date      6711 non-null   object   # 8,800 minus 2,089 engaging or prospecting is 6711 optys won or lost. will I need to convert date? can do with pd.to_datetime(). no, tableau if needed.
+ 7   close_value     6711 non-null   float64  # 8,800 minus 2,089 engaging or prospecting is 6711 optys won or lost. all lost are 0. no values of 0 are any stage other than lost. verified.
+dtypes: float64(1), object(7)
+memory usage: 550.1+ KB
+
+#engage dates and close dates are in YYYY-MM-DD
+
+#verifying unique values of opportunity_id:
+df['opportunity_id'].nunique()
+output: 8800
+yep; 8,800 unique opportunity_id s. 
+
+
+#verifying all 500 nulls in engage_date are opptys in the Prospecting stage:
+df[ (df['deal_stage'] == 'Prospecting') & (df['engage_date'].isnull()) ] 
+output gives df visual but summary says: 500 rows × 8 columns. 500 was my number 
+
+
+#checking null account values by deal stage:
+df[ (df['deal_stage'] == 'Engaging') & (df['account'].isnull()) ]         #count 1088
+df[ (df['deal_stage'] == 'Prospecting') & (df['account'].isnull()) ]     #count 337
+
+#verify 2,089 close date nulls are 1589 engaging and 500 prospecting
+# df[ (df['deal_stage'] == 'Engaging') & (df['close_date'].isnull()) ]   gets 1589
+df[ (df['deal_stage'] == 'Prospecting') & (df['close_date'].isnull()) ]   #gets 500... yep!
+
+#verify number of close value of 0 are deal stage lost. 2473 optys.
+df[ (df['deal_stage'] == 'Lost') & (df['close_value'] == 0.0) ]  
+
+
+#verify number of deal stage won. 4238
+#df[ df['deal_stage'] == 'Won'  ]   
+#verify no won opptys have nulls in close value.  It's true. all null close values belong to engaging or prospecting. 
+df[ (df['deal_stage'] == 'Won') & (df['close_value'].isnull()) ] 
+
+
+#any deal values of 0 that have a stage other than lost? nope.
+df[ (df['deal_stage'] == 'Prospecting') & (df['close_value'] == 0.0) ]   
+ 
+
+#how many opportunities do I have by each deal stage? 
+df['deal_stage'].value_counts()
+deal_stage
+Won            4238
+Lost           2473
+Engaging       1589
+Prospecting     500
+Name: count, dtype: int64
+
+#need to verify but looks like no deal value for opptys in prospecting or engaging deal stages. are all close values 0 for lost optys?
+
+
+#how many uniques in my sales pipeline table?
+df.nunique()
+opportunity_id    8800
+sales_agent         30
+product              7
+account             85
+deal_stage           4
+engage_date        421
+close_date         306
+close_value       2051
+dtype: int64
+
+#basic stats on close value? Min = $0. Max = $30,288. avg = $1,490.92
+df.describe()
+	close_value
+count	6711.000000
+mean	1490.915512
+std	2320.670773
+min	0.000000
+25%	0.000000
+50%	472.000000
+75%	3225.000000
+max	30288.000000
+
+
+# checking for acct name typos:
+
+df['account'].nunique()    #there are 85 unique acct names in pipeline table. 
+df['account'].unique()   #gives me an array with the names. I'm going to move to the accts table, get those names, check for them in pipeline and get count of each. slow and manual... probably a better way...
+
+
+
+
+
+#replaced all instances of 'GTXPro' with 'GTX Pro'. using .replace() method
+#let's try fixing the one typo we know is problematic. change all instances of GTXPro to GTX Pro. use .replace
+df_typo_fix = df.replace('GTXPro','GTX Pro')
+df_typo_fix   # it worked. 
+
+#created new csv using to_csv:
+file_path = 'pipeline_typo_fix.csv' 
+df_typo_fix.to_csv(file_path, index=False)
+
+now I have a new csv in the same folder called 'pipeline_typo_fix.csv' that has the right product name for GTX Pro
+
+*******ACCOUNTS CSV*********
+
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+
+df = pd.read_csv('accounts.csv')
+
+df.head()
+
+df.info()
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 85 entries, 0 to 84
+Data columns (total 7 columns):
+ #   Column            Non-Null Count  Dtype  
+---  ------            --------------  -----  
+ 0   account           85 non-null     object 
+ 1   sector            85 non-null     object 
+ 2   year_established  85 non-null     int64  
+ 3   revenue           85 non-null     float64
+ 4   employees         85 non-null     int64  
+ 5   office_location   85 non-null     object 
+ 6   subsidiary_of     15 non-null     object   
+# subsidiary_of notes: only 7 unique subsidiaries across a total of 15 fields with a subsidiary value over the span of my 85 unique accounts. could replace nulls with 'no parent company' or 'parent not given'. Made decision to postpone implementing until needed for analysis. time saver. steps considered shown below if needed under prompt of df['subsidiary_of'].value_counts(). 
+dtypes: float64(1), int64(2), object(4)
+memory usage: 4.8+ KB
+
+df['subsidiary_of'].value_counts()  
+#we have instances where account field says "Acme Corporation" but "subsidiary_of" is null even though 
+# this output tells us Acme Corporation is a parent company. next step would be to fillna with "Acme Corporation" where account == 
+# "Acme Corporation" and repeat for all subsidiary_of known values. Then, I would fill remaining nulls with "no_parent_co" but I don't
+# anticipate needing subsidiary_of column for analysis. time saver to delete column? For now, yes. IF needed later, address later.leave column in for now. won't hurt performance much. 
+# just to put my eyes on it... df[ (df['account'] == 'Acme Corporation')  ]
+
+subsidiary_of
+Acme Corporation    4
+Sonron              3
+Bubba Gump          2
+Inity               2
+Golddex             2
+Massive Dynamic     1
+Warephase           1
+Name: count, dtype: int64
+
+how many uniques in my accounts table?
+df.nunique()
+account             85
+sector              10
+year_established    35
+revenue             85
+employees           85
+office_location     15
+subsidiary_of        7
+
+df.describe()
+year_established	revenue	employees
+count	85.000000	85.000000	85.000000
+mean	1996.105882	1994.632941	4660.823529
+std	8.865427	2169.491436	5715.601198
+min	1979.000000	4.540000	9.000000
+25%	1989.000000	497.110000	1179.000000
+50%	1996.000000	1223.720000	2769.000000
+75%	2002.000000	2741.370000	5595.000000
+max	2017.000000	11698.030000	34288.000000
+
+
+#searching for typos is documneted in files sent to connor, but here's the code specific to accounts:
+df['account'].unique()
+
+df['account'].value_counts()
+
+#checking to see my map in tableau was correct and.or useful:
+df['office_location'].unique()
+
+*******PRODUCTS CSV*********
+
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+
+df = pd.read_csv('products.csv')
+
+df.head()
+
+df.info()
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 7 entries, 0 to 6
+Data columns (total 3 columns):
+ #   Column       Non-Null Count  Dtype 
+---  ------       --------------  ----- 
+ 0   product      7 non-null      object
+ 1   series       7 non-null      object
+ 2   sales_price  7 non-null      int64 
+dtypes: int64(1), object(2)
+memory usage: 300.0+ bytes
+
+
+df.nunique()
+product        7
+series         3
+sales_price    7
+dtype: int64
+
+df
+	product	series	sales_price
+0	GTX Basic	GTX	550
+1	GTX Pro	GTX	4821
+2	MG Special	MG	55
+3	MG Advanced	MG	3393
+4	GTX Plus Pro	GTX	5482
+5	GTX Plus Basic	GTX	1096
+6	GTK 500	GTK	26768
+
+
+df.describe()
+	sales_price
+count	7.000000
+mean	6023.571429
+std	9388.428070
+min	55.000000
+25%	823.000000
+50%	3393.000000
+75%	5151.500000
+max	26768.000000
+
+
+
+*******SALES TEAMS CSV*********
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+
+df = pd.read_csv('sales_teams.csv')
+
+df
+# There are 35 salespeople. 3 regions. two managers per region. 
+
+df.nunique()
+sales_agent        35
+manager             6
+regional_office     3
+dtype: int64
+
+
+df.info()
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 35 entries, 0 to 34
+Data columns (total 3 columns):
+ #   Column           Non-Null Count  Dtype 
+---  ------           --------------  ----- 
+ 0   sales_agent      35 non-null     object
+ 1   manager          35 non-null     object
+ 2   regional_office  35 non-null     object
+dtypes: object(3)
+memory usage: 972.0+ bytes
+
+df['regional_office'].value_counts()
+regional_office
+East       12
+West       12
+Central    11
+Name: count, dtype: int64
+
+#documenting typo search I spent most of my time in that process with this code:
+df['sales_agent']
+
+
+
+
+
+
